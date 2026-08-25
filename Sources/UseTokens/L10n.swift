@@ -77,55 +77,17 @@ enum L10n {
         // Repeating a stale number as if it were current is the one thing this
         // app must never do.
         "claude.noReading": (
-            en: "No current reading — open Claude Code and the limits appear here.",
-            pt: "Sem leitura atual — abra o Claude Code e os limites aparecem aqui."),
+            en: "No current reading. Sign in to Claude Code in Terminal for exact limits.",
+            pt: "Sem leitura atual. Entre no Claude Code pelo Terminal para limites exatos."),
         "claude.noReadingHint": (
             en: "No current reading. Open Claude Code once and the limits appear here.",
             pt: "Sem leitura atual. Abra o Claude Code uma vez e os limites aparecem aqui."),
-        "state.localReadingTip": (en: "Read from the app installed on this Mac, not from the API.",
-                                  pt: "Lido do app instalado neste Mac, não da API."),
-        "state.estimateTip": (en: "Estimated from local Claude Code transcripts.",
-                              pt: "Estimado a partir das conversas locais do Claude Code."),
-        "state.estimate": (en: "estimate", pt: "estimativa"),
-        "state.expiredToken.claude": (en: "Session expired — open Claude Code to renew",
-                                      pt: "Sessão expirada — abra o Claude Code para renovar"),
-        "state.rateLimited": (en: "API rate limited — retrying soon",
-                              pt: "Limite da API — tentando de novo em breve"),
 
-        "tokens.last5h": (en: "≈ %@ tokens in the last 5 h",
-                          pt: "≈ %@ tokens nas últimas 5 h"),
-
-        "claude.connect": (en: "Connect to Claude", pt: "Conectar ao Claude"),
-        "claude.keychainHint": (
-            en: "macOS will ask for Keychain access to read the Claude Code credential. Click \"Always Allow\" — this happens only once.",
-            pt: "O macOS vai pedir acesso às Chaves para ler a credencial do Claude Code. Clique em \"Sempre Permitir\" — isso acontece só uma vez."),
-
-        "welcome.title": (en: "Welcome to UseTokens", pt: "Bem-vindo ao UseTokens"),
-        "welcome.subtitle": (en: "Choose your language", pt: "Escolha seu idioma"),
-        "welcome.continue": (en: "Continue", pt: "Continuar"),
-        "welcome.hint": (en: "Your ChatGPT and Claude usage, right in the menu bar.",
-                         pt: "Seu uso do ChatGPT e do Claude, direto na barra de menus."),
-
-        "settings.title": (en: "UseTokens Settings", pt: "Ajustes do UseTokens"),
-        "settings.launchAtLogin": (en: "Launch at login", pt: "Iniciar com o Mac"),
-        "settings.loginHint": (en: "Move UseTokens to the Applications folder to enable this.",
-                               pt: "Mova o UseTokens para a pasta Aplicativos para ativar isto."),
-        "settings.autoUpdate": (en: "Update automatically", pt: "Atualizar automaticamente"),
-        "settings.autoUpdateHint": (en: "Checks nasmac.app daily and installs new versions on its own.",
-                                    pt: "Verifica o nasmac.app diariamente e instala as novidades sozinho."),
-        "settings.language": (en: "Language", pt: "Idioma"),
-        "settings.refreshEvery": (en: "Refresh every", pt: "Atualizar a cada"),
-        "settings.minutes": (en: "%d min", pt: "%d min"),
-        "settings.claudeCredential": (en: "Use the Claude Code credential",
-                                     pt: "Usar a credencial do Claude Code"),
-        "settings.claudeCredentialHint": (
-            en: "Optional: reads Claude Code's saved login to show exact limits and reset times. macOS will ask for Keychain access once.",
-            pt: "Opcional: lê o login salvo do Claude Code para mostrar limites e horários exatos. O macOS vai pedir acesso às Chaves uma vez."),
         "settings.claudeStatusLine": (en: "Read Claude Code usage",
                                       pt: "Ler o uso do Claude Code"),
         "settings.claudeStatusLineHint": (
-            en: "Adds a status line to Claude Code so it reports its own limits to UseTokens. No login is read. Turning this off restores your previous status line.",
-            pt: "Adiciona uma linha de status ao Claude Code para ele informar os próprios limites ao UseTokens. Nenhum login é lido. Ao desligar, sua linha de status anterior volta."),
+            en: "Adds a status line to Claude Code in Terminal so it reports its own limits here. No login is read, and turning this off restores your previous status line. The Claude desktop app has no status line, so it cannot report this way — for exact limits there, run \"claude auth login\" in Terminal once.",
+            pt: "Adiciona uma linha de status ao Claude Code no Terminal para ele informar os próprios limites aqui. Nenhum login é lido, e ao desligar sua linha de status anterior volta. O app Claude para Mac não tem linha de status, então não consegue informar por essa via — para limites exatos nele, rode \"claude auth login\" no Terminal uma vez."),
 
         "settings.privacy": (en: "Privacy", pt: "Privacidade"),
         "settings.privacyBody": (

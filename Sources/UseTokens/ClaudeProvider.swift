@@ -6,7 +6,9 @@ import AppKit
 ///
 ///  1. Claude Code's `statusLine` hook, which hands over the exact percentages
 ///     and reset times it draws its own status line with. Official, current,
-///     and it never involves a credential — so it goes first.
+///     and it never involves a credential — so it goes first. Only the terminal
+///     Claude Code draws a status line, so this source is silent for someone
+///     who works entirely inside the Claude desktop app.
 ///  2. Anthropic's usage endpoint, when Claude Code has a sign-in this app is
 ///     allowed to use. Adds the per-model weekly windows the hook omits.
 ///  3. `plan-usage-history.json`, which the Claude desktop app writes itself.
@@ -19,9 +21,10 @@ import AppKit
 /// encrypted store, and refresh a credential it did not create (rotating a
 /// refresh token would sign the user out of Claude Code itself).
 ///
-/// If nothing says the user is signed in, no Claude card is shown at all — an
-/// empty card asking for a login is noise, and a number nobody can verify is
-/// worse than nothing.
+/// If nothing on this Mac was ever written by a signed-in Claude, no card is
+/// shown at all. But "no current number" and "no Claude" are different things:
+/// when a session clearly exists and none of the sources can be read right now,
+/// the card stays and says so, because silently vanishing looks like a bug.
 final class ClaudeProvider: UsageProvider {
     let id = "claude"
     let displayName = "Claude"
@@ -43,10 +46,10 @@ final class ClaudeProvider: UsageProvider {
         cliStatus = nil
     }
 
-    /// How long a past reading stands in for "signed in" when Claude Code
-    /// itself cannot be asked. Deliberately short: after a logout the card has
-    /// to disappear, not linger for a week.
-    private static let signedInEvidenceMaxAge: TimeInterval = 24 * 3600
+    /// How far back a local reading still counts as proof that this Mac has a
+    /// signed-in Claude. The desktop app keeps 30 days of samples and prunes
+    /// past that, so anything still on disk is recent enough to trust.
+    private static let signedInEvidenceMaxAge: TimeInterval = 30 * 24 * 3600
 
     /// Claude Code re-runs the status line every 60 s while a session is open,
     /// so anything older than a few cycles means no session is running and the
@@ -65,26 +68,25 @@ final class ClaudeProvider: UsageProvider {
             return [status]
         }
 
-        // A reading this fresh is proof of a signed-in session on its own.
-        let freshDesktop = sample.map {
-            Date().timeIntervalSince($0.date) <= ClaudeDesktopUsage.freshMaxAge
+        // Is there a Claude on this Mac at all?
+        //
+        // `claude auth status` only ever speaks for the command line tool's own
+        // credential. Someone signed into the Claude desktop app gets a "no"
+        // from it while being perfectly signed in — so a negative answer there
+        // is a reason to keep looking, never a reason to decide the user has no
+        // Claude and hide the card.
+        //
+        // The honest evidence is a file one of the Claude apps wrote itself:
+        // the desktop app's usage history, or a status line dump. Either exists
+        // only because a signed-in session created it.
+        let evidence = [sample?.date, line?.date].compactMap { $0 }.max()
+        let seenSignedIn = evidence.map {
+            Date().timeIntervalSince($0) < Self.signedInEvidenceMaxAge
         } ?? false
 
-        if !freshDesktop {
-            // Nothing recent to go on: ask Claude Code directly. A definite
-            // "not signed in" hides the card — no stale evidence overrides it.
-            let cli = await cachedCLIStatus()
-            if cli?.loggedIn == false { return [] }
-            if cli == nil {
-                // Claude Code could not be asked. Fall back to how recently
-                // something on this Mac last saw a signed-in session, and keep
-                // that window short so a logged-out card does not linger.
-                let evidence = [sample?.date, line?.date].compactMap { $0 }.max()
-                guard let evidence,
-                      Date().timeIntervalSince(evidence) < Self.signedInEvidenceMaxAge
-                else { return [] }
-            }
-        }
+        // Nothing local to go on — only now is the CLI worth a process spawn.
+        let cli = seenSignedIn ? nil : await cachedCLIStatus()
+        guard seenSignedIn || cli?.loggedIn == true else { return [] }
 
         // 2. Exact numbers, when a credential we are allowed to use exists.
         if Prefs.claudeKeychainConsent {
