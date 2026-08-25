@@ -1,0 +1,12 @@
+# build output
+.build/
+dist/
+*.dmg
+
+# macOS
+.DS_Store
+
+# editors
+.vscode/
+*.xcworkspace
+xcuserdata/

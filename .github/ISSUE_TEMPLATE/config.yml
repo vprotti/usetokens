@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or general discussion / Duvida ou conversa
+    url: https://github.com/vprotti/usetokens/discussions
+    about: For anything that is not a bug or a concrete idea.
+  - name: Security issue / Falha de seguranca
+    url: https://github.com/vprotti/usetokens/security/advisories/new
+    about: Please report privately, not in a public issue.
+  - name: Download and other apps / Download e outros apps
+    url: https://nasmac.app
+    about: nasmac.app

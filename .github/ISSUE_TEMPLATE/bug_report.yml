@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in UseTokens does not work / Algo no UseTokens nao funciona
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write in English or Portuguese, whichever you prefer.
+        Escreva em ingles ou portugues, como preferir.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / O que aconteceu
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Como reproduzir
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: "UseTokens version / Versao do UseTokens"
+      description: Settings window, or the About entry in the menu.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version / Versao do macOS
+      placeholder: "15.0 (Apple Silicon)"
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or anything else / Print ou qualquer outra coisa
+      description: Drag an image straight into this box.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before you post / Antes de postar
+      options:
+        - label: I removed any token, e-mail or personal path from what I pasted above.
+          required: true

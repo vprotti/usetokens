@@ -1,0 +1,24 @@
+name: Idea
+description: Suggest something for UseTokens / Sugira algo para o UseTokens
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        UseTokens is deliberately small. The best suggestions describe a problem,
+        not a button.
+
+        O UseTokens e pequeno de proposito. As melhores sugestoes descrevem um
+        problema, nao um botao.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem / Qual e o problema
+      description: What are you trying to do that is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind / O que voce imaginou
+      description: Optional. How you would solve it, if you have a thought.
