@@ -46,15 +46,17 @@ If neither service has a signed-in session, that service's card simply does not 
 
 ## Install
 
-Download the [DMG](https://nasmac.app/downloads/UseTokens.dmg) and drag it to your Applications folder.
+Download the [DMG](https://nasmac.app/downloads/UseTokens.dmg) — and **don't open it yet**.
 
-macOS blocks the first launch, because the app is not notarized by Apple yet — notarization requires the paid developer program. Run this once in Terminal:
+macOS blocks the downloaded file, because the app is not notarized by Apple yet: notarization requires the paid developer program. Before opening it, run this in Terminal, using the name of the file you downloaded:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/UseTokens.app
+xattr -dr com.apple.quarantine ~/Downloads/UseTokens-1.0.0.dmg
 ```
 
-That command only removes the "downloaded from the internet" flag your browser puts on the file. It does not modify the app or disable any macOS protection.
+Now open the .dmg and drag the app to your Applications folder. Nothing else is needed — an app that comes out of a cleared .dmg does not carry the flag.
+
+That command only removes the "downloaded from the internet" flag your browser puts on the file. It does not modify the app or disable any macOS protection. If you already opened the .dmg before running the command, run it on `/Applications/UseTokens.app` too.
 
 ## Settings
 

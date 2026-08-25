@@ -46,15 +46,17 @@ Se não houver nenhuma sessão logada de um dos dois, o card daquele serviço si
 
 ## Instalar
 
-Baixe o [DMG](https://nasmac.app/downloads/UseTokens.dmg), arraste para a pasta Aplicativos.
+Baixe o [DMG](https://nasmac.app/downloads/UseTokens.dmg) — e **não abra ainda**.
 
-Na primeira abertura o macOS bloqueia, porque o app ainda não é notarizado pela Apple — a notarização depende do programa pago de desenvolvedor. Rode uma vez no Terminal:
+O macOS bloqueia o arquivo baixado, porque o app ainda não é notarizado pela Apple: a notarização depende do programa pago de desenvolvedor. Antes de abrir, rode isto no Terminal, trocando pelo nome do arquivo que você baixou:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/UseTokens.app
+xattr -dr com.apple.quarantine ~/Downloads/UseTokens-1.0.0.dmg
 ```
 
-Esse comando só remove a marca de "baixado da internet" que o navegador coloca no arquivo. Não altera o app nem desliga proteção nenhuma do macOS.
+Agora é só abrir o .dmg e arrastar o app para a pasta Aplicativos. Não precisa de mais nada — o app que sai de um .dmg já liberado não carrega o bloqueio.
+
+Esse comando só remove a marca de "baixado da internet" que o navegador coloca no arquivo. Não altera o app nem desliga proteção nenhuma do macOS. Se você abriu o .dmg antes de rodar o comando, rode também em `/Applications/UseTokens.app`.
 
 ## Ajustes
 
