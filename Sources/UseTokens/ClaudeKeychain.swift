@@ -91,6 +91,49 @@ enum ClaudeKeychain {
     /// The token is used to call Anthropic's own usage endpoint and nothing
     /// else — it is never refreshed (rotating it would revoke Claude Code's
     /// own session), never written back, and never persisted by this app.
+    /// The same read, with a bound on how long the caller waits for it.
+    ///
+    /// Asking for an item another app owns puts a dialog on screen, and
+    /// `SecItemCopyMatching` does not return until somebody answers it. On an
+    /// automatic refresh nobody may be at the keyboard, and waiting means the
+    /// refresh never finishes at all: no card, no menu bar, no explanation for
+    /// any of it — which is exactly how it behaved.
+    ///
+    /// So the wait is bounded and the cycle carries on with the local reading.
+    /// The blocked call is left alone: it is holding a dialog the user may
+    /// still answer, and whatever they choose is picked up next time round.
+    static func read(service: String, waitingUpTo timeout: TimeInterval) async -> ReadResult {
+        await withCheckedContinuation { continuation in
+            let once = Once(continuation)
+            DispatchQueue.global(qos: .utility).async {
+                once.finish(read(service: service))
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                // Not "no credential" — "no answer yet". Same outcome for this
+                // refresh, and the next one asks again.
+                once.finish(.absent)
+            }
+        }
+    }
+
+    /// Resumes exactly once, whichever of the two racers arrives first.
+    private final class Once: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<ReadResult, Never>?
+
+        init(_ continuation: CheckedContinuation<ReadResult, Never>) {
+            self.continuation = continuation
+        }
+
+        func finish(_ result: ReadResult) {
+            lock.lock()
+            let pending = continuation
+            continuation = nil
+            lock.unlock()
+            pending?.resume(returning: result)
+        }
+    }
+
     static func read(service explicitService: String? = nil) -> ReadResult {
         guard let service = explicitService ?? findServiceName() else { return .absent }
 

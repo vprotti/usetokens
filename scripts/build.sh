@@ -15,6 +15,9 @@ APP_VERSION="${APP_VERSION:-1.0.1}"
 DIST="$ROOT/dist"
 APP="$DIST/UseTokens.app"
 
+echo "==> Checking translation keys"
+"$ROOT/scripts/check-l10n.sh"
+
 echo "==> Universal release build (per-arch: CLT has no xcbuild for --arch --arch)"
 swift build -c release --triple arm64-apple-macosx13.0
 swift build -c release --triple x86_64-apple-macosx13.0

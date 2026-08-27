@@ -83,6 +83,30 @@ enum L10n {
             en: "This reading is from earlier — nothing has reported since. Open Claude Code in Terminal for a current one.",
             pt: "Esta leitura é de antes — nada reportou desde então. Abra o Claude Code no Terminal para ter uma atual."),
 
+        "settings.title": (en: "UseTokens Settings", pt: "Ajustes do UseTokens"),
+        "settings.launchAtLogin": (en: "Launch at login", pt: "Iniciar com o Mac"),
+        "settings.loginHint": (
+            en: "Move UseTokens to your Applications folder for this to stick — macOS forgets a login item whose app is still sitting in the disk image.",
+            pt: "Mova o UseTokens para a pasta Aplicativos para isso valer — o macOS esquece um item de início cujo app ainda está dentro da imagem de disco."),
+        "settings.refreshEvery": (en: "Refresh every", pt: "Atualizar a cada"),
+        "settings.minutes": (en: "%d minutes", pt: "%d minutos"),
+        "settings.autoUpdate": (en: "Update automatically", pt: "Atualizar automaticamente"),
+        "settings.autoUpdateHint": (
+            en: "Checks nasmac.app for a new version and installs it quietly. Never while the panel is open.",
+            pt: "Procura versão nova no nasmac.app e instala sem atrapalhar. Nunca com o painel aberto."),
+        "settings.language": (en: "Language", pt: "Idioma"),
+        "settings.claudeCredential": (en: "Use the Claude login already on this Mac",
+                                      pt: "Usar o login do Claude que já existe neste Mac"),
+        "settings.claudeCredentialHint": (
+            en: "Asks Anthropic for the exact limits, including the per-model weekly ones, using the sign-in Claude Code already made. macOS will ask your permission once, and it is macOS asking — the app never opens the store itself and never renews anyone's login. Turn this off and nothing is ever requested.",
+            pt: "Consulta os limites exatos na Anthropic, inclusive os semanais por modelo, usando o login que o Claude Code já fez. O macOS vai pedir sua autorização uma vez, e é o macOS pedindo — o app não abre o cofre sozinho e nunca renova login de ninguém. Desligando isto, nada é solicitado."),
+        "claude.connect": (en: "Connect Claude", pt: "Conectar o Claude"),
+        "claude.keychainHint": (
+            en: "macOS will ask whether UseTokens may use the sign-in Claude Code made. Allow it and the exact limits appear here.",
+            pt: "O macOS vai perguntar se o UseTokens pode usar o login que o Claude Code fez. Autorize e os limites exatos aparecem aqui."),
+        "state.estimate": (en: "estimate", pt: "estimativa"),
+        "tokens.last5h": (en: "%@ in the last 5 h", pt: "%@ nas últimas 5 h"),
+
         "settings.claudeStatusLine": (en: "Read Claude Code usage",
                                       pt: "Ler o uso do Claude Code"),
         "settings.claudeStatusLineHint": (

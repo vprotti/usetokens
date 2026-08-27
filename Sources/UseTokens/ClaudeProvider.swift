@@ -38,6 +38,10 @@ final class ClaudeProvider: UsageProvider {
     /// well past a refresh cycle and skipped whenever something local already
     /// proves the user is signed in.
     private static let cliStatusTTL: TimeInterval = 15 * 60
+    /// How long a refresh waits on the macOS permission dialog before giving
+    /// up on the live numbers for this cycle. Long enough for someone who is
+    /// there to click, short enough that nobody notices when they are not.
+    private static let keychainWait: TimeInterval = 6
     private static var cliStatus: (checked: Date, value: ClaudeCLI.Status?)?
 
     static func invalidateGate() {
@@ -99,7 +103,8 @@ final class ClaudeProvider: UsageProvider {
             let org = sample?.org ?? account?.organizationUUID
             var live: [ProviderStatus] = []
             for service in ClaudeKeychain.allServiceNames() {
-                switch ClaudeKeychain.read(service: service) {
+                switch await ClaudeKeychain.read(service: service,
+                                                 waitingUpTo: Self.keychainWait) {
                 case .denied:
                     Prefs.claudeKeychainConsent = false // let the user re-initiate
                 case .absent:
