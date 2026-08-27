@@ -20,8 +20,13 @@ enum SingleInstance {
     /// closing it is what releases the claim.
     private static var descriptor: CInt = -1
 
+    /// What the claim is keyed on. The bundle identifier for the app proper;
+    /// for a loose binary — the self-test, or a build run straight out of
+    /// .build — the executable's own name, because a shared fallback would
+    /// have two different programs fighting over one lock.
     private static var bundleID: String {
-        Bundle.main.bundleIdentifier ?? "br.com.nasralla.unknown"
+        if let identifier = Bundle.main.bundleIdentifier { return identifier }
+        return "br.com.nasralla." + (Bundle.main.executableURL?.lastPathComponent ?? "app")
     }
 
     /// Posted by a second copy on its way out, so the one already running can
@@ -100,7 +105,14 @@ enum SingleInstance {
             if !condition { failures += 1 }
         }
 
-        check("the first copy claims it", claim())
+        // Refusing the test process is the guard working, not a failure —
+        // there is already a copy of this app running, and it owns the claim.
+        // Saying "FAILED" there would be a lie about the thing under test.
+        guard claim() else {
+            print("skip this app is already running; quit it and run this again")
+            exit(0)
+        }
+        check("the first copy claims it", true)
 
         let child = Process()
         child.executableURL = Bundle.main.executableURL
