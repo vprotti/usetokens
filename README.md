@@ -4,17 +4,19 @@
 
 # UseTokens
 
-**Quanto do seu plano de IA já foi, na barra de menus.**
+**Quanto do seu plano de IA já foi, direto na barra de menus.**
 
 [nasmac.app](https://nasmac.app) · [English](README.en.md) · [Baixar](https://nasmac.app/downloads/UseTokens.dmg)
 
-<img src="docs/popover.png" width="320" alt="Cards do ChatGPT e do Claude com barras de uso, porcentagem e horário de reset">
+<img src="docs/site.png" width="720" alt="As barrinhas na barra de menus e o painel aberto com os cards do ChatGPT e do Claude">
 
 </div>
 
 ---
 
 Grátis, sem conta, sem anúncio, sem versão paga. Mostra o consumo do ChatGPT (Codex) e do Claude: barra, porcentagem, quanto falta para resetar e quando foi a última leitura.
+
+Na barra de menus ficam duas barrinhas por serviço — a sessão atual em cima, a semana embaixo — então dá para saber como está sem abrir nada.
 
 Uma conta de cada, ou várias — o app acha sozinho todas as que estiverem logadas e mostra um card para cada, identificado pelo e-mail mascarado.
 
@@ -29,7 +31,7 @@ Isto é a parte importante, então vem antes do resto.
 - **Não existe servidor.** O app não tem backend, não tem conta, não tem telemetria. Nada seu sai do seu Mac.
 - **Nada embutido no build.** Não vai chave, token nem identificador dentro do app.
 - **Não lê cofre criptografado de ninguém.** O app não abre o armazenamento seguro do app do Claude nem do ChatGPT, e nunca renova credencial de terceiro — renovar rotacionaria o token e derrubaria a sua sessão nesses apps.
-- **O que ele lê:** o número de uso que o Claude Code entrega pelo mecanismo oficial de status line, o arquivo que o app do Claude grava no seu disco, e o `auth.json` do Codex para consultar a API da OpenAI direto do seu computador.
+- **O que ele lê:** o número de uso que o Claude Code entrega pelo mecanismo oficial de status line, o arquivo que o app do Claude grava no seu disco, o `~/.claude.json` — a configuração do próprio Claude Code, de onde sai só *qual conta está logada e qual é o plano*: é identidade, não credencial, não tem token nenhum ali — e o `auth.json` do Codex para consultar a API da OpenAI direto do seu computador.
 - **O que ele grava:** só porcentagens e horários, em `~/Library/Application Support/UseTokens`. O payload do Claude Code é filtrado antes de tocar o disco — id de sessão, diretório de trabalho e caminho de transcrição são descartados.
 
 O código está todo aqui. `ClaudeProvider.swift`, `ClaudeStatusLine.swift` e `CodexProvider.swift` são os arquivos que falam com o mundo lá fora.
@@ -38,7 +40,11 @@ O código está todo aqui. `ClaudeProvider.swift`, `ClaudeStatusLine.swift` e `C
 
 **Claude.** A fonte principal é a *status line* do Claude Code — o mecanismo oficial e documentado em que o Claude Code entrega, no stdin de um comando seu, o JSON que ele usa para desenhar a própria barra de status. Esse JSON traz `rate_limits.five_hour` e `rate_limits.seven_day` com a porcentagem e o horário exato de reset. O UseTokens registra um script de três linhas como esse comando, preservando qualquer status line que você já tivesse (ela continua sendo desenhada normalmente). Desligue a opção nos Ajustes e o seu `~/.claude/settings.json` volta exatamente como estava.
 
-Como reserva, o app lê `plan-usage-history.json`, que o app do Claude grava sozinho. É JSON puro, sem token — mas o app do Claude para de amostrar quando a máquina fica ociosa, então essa leitura envelhece. **Leitura velha não vira número na tela:** passando de 30 minutos, o card diz que não tem leitura atual em vez de repetir uma porcentagem de horas atrás.
+Vale saber: **só o Claude Code do Terminal desenha status line.** O app do Claude para Mac não tem uma, então quem usa só ele não alimenta essa fonte.
+
+Como reserva, o app lê `plan-usage-history.json`, que o app do Claude grava sozinho. É JSON puro, sem token — mas o app do Claude só amostra em certas condições, então essa leitura envelhece.
+
+**Leitura velha nunca vira barra na barra de menus.** Passando de 30 minutos ela some do ícone e o card mostra a última que existiu com a idade escrita ao lado ("lido há 3 d"), junto de como conseguir uma atual. Repetir uma porcentagem de horas atrás como se fosse agora é a única coisa que este app não pode fazer.
 
 **ChatGPT / Codex.** Consulta `chatgpt.com/backend-api/wham/usage` com a credencial que o Codex CLI já salvou em `~/.codex/auth.json`, direto do seu Mac. Devolve os limites gerais e também os limites por modelo, cada um com a própria janela e reset.
 
@@ -51,7 +57,7 @@ Baixe o [DMG](https://nasmac.app/downloads/UseTokens.dmg) — e **não abra aind
 O macOS bloqueia o arquivo baixado, porque o app ainda não é notarizado pela Apple: a notarização depende do programa pago de desenvolvedor. Antes de abrir, rode isto no Terminal, trocando pelo nome do arquivo que você baixou:
 
 ```bash
-xattr -dr com.apple.quarantine ~/Downloads/UseTokens-1.0.0.dmg
+xattr -dr com.apple.quarantine ~/Downloads/UseTokens*.dmg
 ```
 
 Agora é só abrir o .dmg e arrastar o app para a pasta Aplicativos. Não precisa de mais nada — o app que sai de um .dmg já liberado não carrega o bloqueio.
@@ -62,11 +68,14 @@ Esse comando só remove a marca de "baixado da internet" que o navegador coloca 
 
 - **Iniciar com o Mac** e **atualizar automaticamente** — ligados por padrão.
 - **Ler o uso do Claude Code** — registra a status line descrita acima. Ligado por padrão, reversível a qualquer momento.
+- **Mostrar o uso na barra de menus** — as barrinhas em vez do ícone simples. Ligado por padrão.
 - **Atualizar a cada** — 5, 15, 30 ou 60 minutos.
 - **Notificar quando resetar** — som curto quando um limite estourado volta a zero.
 - **Idioma** — português ou inglês.
 
-O ícone na barra fica na cor do app, ganha um ponto amarelo entre 90% e 99%, e vermelho ao bater 100%.
+<img src="docs/menubar.png" width="640" alt="As barrinhas em quatro estados, sobre barra de menus escura e clara">
+
+Cada serviço tem duas barrinhas: a sessão atual em cima, a semana embaixo. Elas ficam na cor do serviço até 89%, amarelas de 90% a 99% e vermelhas ao bater 100%. Sem número: nesse tamanho um número não se lê e uma barra sim. Desligando as barrinhas, volta o ícone simples com um ponto de aviso na mesma escala de cor.
 
 ## Compilar do código
 

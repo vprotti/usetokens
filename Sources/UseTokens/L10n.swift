@@ -77,17 +77,23 @@ enum L10n {
         // Repeating a stale number as if it were current is the one thing this
         // app must never do.
         "claude.noReading": (
-            en: "No current reading. Sign in to Claude Code in Terminal for exact limits.",
-            pt: "Sem leitura atual. Entre no Claude Code pelo Terminal para limites exatos."),
+            en: "Signed in, no reading yet. Open Claude Code in Terminal once and the limits appear here.",
+            pt: "Conectado, ainda sem leitura. Abra o Claude Code no Terminal uma vez e os limites aparecem aqui."),
         "claude.noReadingHint": (
-            en: "No current reading. Open Claude Code once and the limits appear here.",
-            pt: "Sem leitura atual. Abra o Claude Code uma vez e os limites aparecem aqui."),
+            en: "This reading is from earlier — nothing has reported since. Open Claude Code in Terminal for a current one.",
+            pt: "Esta leitura é de antes — nada reportou desde então. Abra o Claude Code no Terminal para ter uma atual."),
 
         "settings.claudeStatusLine": (en: "Read Claude Code usage",
                                       pt: "Ler o uso do Claude Code"),
         "settings.claudeStatusLineHint": (
             en: "Adds a status line to Claude Code in Terminal so it reports its own limits here. No login is read, and turning this off restores your previous status line. The Claude desktop app has no status line, so it cannot report this way — for exact limits there, run \"claude auth login\" in Terminal once.",
             pt: "Adiciona uma linha de status ao Claude Code no Terminal para ele informar os próprios limites aqui. Nenhum login é lido, e ao desligar sua linha de status anterior volta. O app Claude para Mac não tem linha de status, então não consegue informar por essa via — para limites exatos nele, rode \"claude auth login\" no Terminal uma vez."),
+
+        "settings.menuBarBars": (en: "Show usage in the menu bar",
+                                 pt: "Mostrar o uso na barra de menus"),
+        "settings.menuBarBarsHint": (
+            en: "Two bars for each service: the current session on top, the week below. Only current readings are drawn — a service with nothing to report is left out rather than shown at an old length.",
+            pt: "Duas barrinhas para cada serviço: a sessão atual em cima, a semana embaixo. Só leituras atuais são desenhadas — um serviço sem número recente fica de fora em vez de aparecer com um valor velho."),
 
         "settings.privacy": (en: "Privacy", pt: "Privacidade"),
         "settings.privacyBody": (

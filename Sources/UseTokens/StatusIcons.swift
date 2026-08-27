@@ -30,6 +30,97 @@ enum StatusIcons {
         return plain
     }
 
+    // MARK: - The reading, drawn in the menu bar
+
+    /// Claude's terracotta and the teal above, so the two stacks are told apart
+    /// without a label. Fixed values rather than system colours: these are
+    /// brand marks, and they have to look the same on either menu bar shade.
+    static let claudeTint = NSColor(calibratedRed: 0.84, green: 0.47, blue: 0.33, alpha: 1.0)
+
+    /// One service's reading: the session window and the week.
+    struct Bars {
+        let session: Double?
+        let week: Double?
+        let tint: NSColor
+    }
+
+    private enum Bar {
+        static let width: CGFloat = 18
+        static let height: CGFloat = 3.5
+        static let gap: CGFloat = 3.5          // between the two bars of a pair
+        static let groupGap: CGFloat = 5       // between services
+        static let inset: CGFloat = 3          // breathing room at either end
+    }
+
+    /// A compact reading drawn straight into the menu bar: two bars per
+    /// service, the session window on top and the week below, always in that
+    /// order.
+    ///
+    /// No numbers. At this size a number is unreadable and a bar is not — how
+    /// full it is carries the whole message, and the colour carries the rest.
+    /// A service with nothing current to say is simply left out; showing an old
+    /// number at a bar's length would be a claim about right now.
+    static func barsIcon(_ groups: [Bars]) -> NSImage? {
+        let drawable = groups.filter { $0.session != nil || $0.week != nil }
+        guard !drawable.isEmpty else { return nil }
+
+        let pairHeight = Bar.height * 2 + Bar.gap
+        let width = Bar.inset * 2 + CGFloat(drawable.count) * Bar.width
+            + CGFloat(drawable.count - 1) * Bar.groupGap
+
+        let image = NSImage(size: NSSize(width: width, height: size.height),
+                            flipped: false) { rect in
+            var x = rect.minX + Bar.inset
+            let top = rect.midY + pairHeight / 2 - Bar.height
+            for group in drawable {
+                draw(percent: group.session, tint: group.tint,
+                     at: NSPoint(x: x, y: top))
+                draw(percent: group.week, tint: group.tint,
+                     at: NSPoint(x: x, y: top - Bar.height - Bar.gap))
+                x += Bar.width + Bar.groupGap
+            }
+            return true
+        }
+        // Not a template: a template is flattened to a monochrome mask, and the
+        // colour is half of what these bars say.
+        image.isTemplate = false
+        return image
+    }
+
+    /// One bar: the full length as a faint track, the used part filled over it.
+    ///
+    /// `labelColor` resolves against whichever menu bar it is drawn into, so
+    /// the track stays visible on both. A window with no reading at all draws
+    /// the track alone — visibly an empty slot rather than a confident zero.
+    private static func draw(percent: Double?, tint: NSColor, at origin: NSPoint) {
+        let track = NSRect(x: origin.x, y: origin.y,
+                           width: Bar.width, height: Bar.height)
+        let radius = Bar.height / 2
+
+        NSColor.labelColor.withAlphaComponent(0.22).setFill()
+        NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
+
+        guard let percent else { return }
+        let filled = max(0, min(100, percent)) / 100
+        guard filled > 0 else { return }
+
+        // Below a couple of points a rounded rectangle collapses into nothing;
+        // keep a visible stub so "barely used" still reads as used.
+        let width = max(Bar.height, Bar.width * filled)
+        color(forPercent: percent, tint: tint).setFill()
+        NSBezierPath(roundedRect: NSRect(x: origin.x, y: origin.y,
+                                         width: width, height: Bar.height),
+                     xRadius: radius, yRadius: radius).fill()
+    }
+
+    /// The brand colour until the limit is close, then the warning takes over —
+    /// at a glance, "which service" matters less than "you are nearly out".
+    private static func color(forPercent percent: Double, tint: NSColor) -> NSColor {
+        if percent >= criticalPercent { return red }
+        if percent >= warningPercent { return amber }
+        return tint
+    }
+
     private static func icon(badge: NSColor?) -> NSImage {
         let img = NSImage(size: size, flipped: false) { rect in
             drawToken(in: rect, filled: true, color: teal, badge: badge)

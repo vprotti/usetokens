@@ -127,17 +127,25 @@ final class UsageStore {
 
     /// Highest used percentage across every window (drives the status icon).
     var maxUsedPercent: Double {
-        statuses.flatMap { $0.allWindows }.compactMap { $0.usedPercent }.max() ?? 0
+        currentWindows.compactMap { $0.usedPercent }.max() ?? 0
+    }
+
+    /// Every window whose number still describes now. What the menu bar draws.
+    var currentWindows: [LimitWindow] {
+        statuses.flatMap { $0.allWindows }.filter { !$0.isStale }
     }
 
     /// e.g. "Codex 12% · Claude 33%" for the status item tooltip. With more
     /// than one account of the same provider, the label carries the account.
     var tooltipSummary: String {
-        let parts = statuses.compactMap { status -> String? in
-            guard let top = status.allWindows.compactMap({ $0.usedPercent }).max() else { return nil }
+        let parts = statuses.map { status -> String in
             var name = status.providerID == "codex" ? "Codex" : "Claude"
             let siblings = statuses.filter { $0.providerID == status.providerID }.count
             if siblings > 1, let account = status.accountLabel { name += " \(account)" }
+            // A service with nothing current still belongs here. Leaving it out
+            // reads as "not detected", which is a different and worse message.
+            guard let top = status.allWindows.filter({ !$0.isStale })
+                .compactMap({ $0.usedPercent }).max() else { return "\(name) —" }
             return "\(name) \(Int(top.rounded()))%"
         }
         return parts.joined(separator: " · ")

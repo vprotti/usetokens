@@ -41,6 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusController = status
         self.settingsController = settings
 
+        // A second launch — a double click while it is already running, or a
+        // login item that fired twice — should surface the copy that is here
+        // rather than look like nothing happened.
+        SingleInstance.onSecondLaunch { [weak settings] in
+            NSApp.activate(ignoringOtherApps: true)
+            settings?.show()
+        }
+
         store.refresh()
 
         // Don't restart the app while the user is reading the popover.

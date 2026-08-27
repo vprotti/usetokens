@@ -8,13 +8,15 @@
 
 [nasmac.app](https://nasmac.app) · [Português](README.md) · [Download](https://nasmac.app/downloads/UseTokens.dmg)
 
-<img src="docs/popover.png" width="320" alt="ChatGPT and Claude cards with usage bars, percentages and reset times">
+<img src="docs/site.png" width="720" alt="The usage bars in the menu bar and the panel they open, with the ChatGPT and Claude cards">
 
 </div>
 
 ---
 
 Free, no account, no ads, no paid tier. It shows what you have spent on ChatGPT (Codex) and Claude: bar, percentage, time left until the reset, and when the reading was taken.
+
+The menu bar carries two small bars per service — the current session on top, the week below — so you can tell where you stand without opening anything.
 
 One account each, or several — the app finds every signed-in one on its own and gives each a card, labelled with a masked e-mail.
 
@@ -29,7 +31,7 @@ This is the part that matters, so it comes before everything else.
 - **There is no server.** No backend, no account, no telemetry. Nothing about you leaves your Mac.
 - **Nothing is baked into the build.** No key, no token, no identifier ships inside the app.
 - **It does not crack anyone's encrypted vault.** The app never opens the Claude or ChatGPT secure storage, and never refreshes a third-party credential — refreshing would rotate the token and sign you out of those apps.
-- **What it reads:** the usage number Claude Code hands over through its official status line mechanism, the file the Claude app writes to your disk, and Codex's `auth.json` so it can call OpenAI's API straight from your computer.
+- **What it reads:** the usage number Claude Code hands over through its official status line mechanism, the file the Claude app writes to your disk, `~/.claude.json` — Claude Code's own configuration, from which it takes only *which account is signed in and which plan it is on*: identity, not a credential, with no token anywhere in it — and Codex's `auth.json` so it can call OpenAI's API straight from your computer.
 - **What it writes:** percentages and timestamps only, in `~/Library/Application Support/UseTokens`. The Claude Code payload is filtered before it touches disk — session id, working directory and transcript path are dropped.
 
 The code is all here. `ClaudeProvider.swift`, `ClaudeStatusLine.swift` and `CodexProvider.swift` are the files that talk to the outside world.
@@ -38,7 +40,11 @@ The code is all here. `ClaudeProvider.swift`, `ClaudeStatusLine.swift` and `Code
 
 **Claude.** The main source is Claude Code's *status line* — the official, documented mechanism where Claude Code hands your own command, on stdin, the JSON it draws its own status bar with. That JSON carries `rate_limits.five_hour` and `rate_limits.seven_day`, each with a percentage and an exact reset time. UseTokens registers a three-line script as that command, preserving any status line you already had (it keeps being drawn as usual). Turn the setting off and your `~/.claude/settings.json` goes back exactly as it was.
 
-As a fallback the app reads `plan-usage-history.json`, which the Claude app writes on its own. It is plain JSON, no token involved — but the Claude app stops sampling once the machine goes idle, so that reading gets old. **An old reading never becomes a number on screen:** past 30 minutes the card says it has no current reading instead of repeating a percentage from hours ago.
+Worth knowing: **only Claude Code in a terminal draws a status line.** The Claude desktop app has none, so working entirely inside it feeds nothing to this source.
+
+As a fallback the app reads `plan-usage-history.json`, which the Claude app writes on its own. Plain JSON, no token involved — but the Claude app only samples under certain conditions, so that reading gets old.
+
+**An old reading never becomes a bar in the menu bar.** Past 30 minutes it drops out of the icon, and the card shows the last one there was with its age spelled out next to it ("read 3 d ago"), along with how to get a current one. Repeating a percentage from hours ago as though it were now is the one thing this app must not do.
 
 **ChatGPT / Codex.** Calls `chatgpt.com/backend-api/wham/usage` with the credential the Codex CLI already saved in `~/.codex/auth.json`, straight from your Mac. It returns the general limits and the per-model ones too, each with its own window and reset.
 
@@ -51,7 +57,7 @@ Download the [DMG](https://nasmac.app/downloads/UseTokens.dmg) — and **don't o
 macOS blocks the downloaded file, because the app is not notarized by Apple yet: notarization requires the paid developer program. Before opening it, run this in Terminal, using the name of the file you downloaded:
 
 ```bash
-xattr -dr com.apple.quarantine ~/Downloads/UseTokens-1.0.0.dmg
+xattr -dr com.apple.quarantine ~/Downloads/UseTokens*.dmg
 ```
 
 Now open the .dmg and drag the app to your Applications folder. Nothing else is needed — an app that comes out of a cleared .dmg does not carry the flag.
@@ -62,11 +68,14 @@ That command only removes the "downloaded from the internet" flag your browser p
 
 - **Launch at login** and **update automatically** — on by default.
 - **Read Claude Code usage** — registers the status line described above. On by default, reversible any time.
+- **Show usage in the menu bar** — the bars instead of the plain icon. On by default.
 - **Refresh every** — 5, 15, 30 or 60 minutes.
 - **Notify when limits reset** — a short sound when a spent limit rolls back to zero.
 - **Language** — English or Portuguese.
 
-The menu bar icon sits in the app's own colour, picks up a yellow dot between 90% and 99%, and turns red at 100%.
+<img src="docs/menubar.png" width="640" alt="The bars in four states, over a dark and a light menu bar">
+
+Each service gets two bars: the current session on top, the week below. They carry the service's colour up to 89%, turn yellow from 90% to 99%, and red at 100%. No numbers: at that size a number cannot be read and a bar can. Turn the bars off and the plain icon comes back, with a warning dot on the same colour scale.
 
 ## Build from source
 

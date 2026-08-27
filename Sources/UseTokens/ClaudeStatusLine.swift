@@ -35,18 +35,55 @@ enum ClaudeStatusLine {
 
     /// Overridable so the self-test can exercise install/uninstall against a
     /// scratch directory instead of the user's real configuration.
+    ///
+    /// The environment variable does the same job one process further out: the
+    /// bridge script runs this binary again as a child, and a child inherits
+    /// the environment but not a value someone set in memory. Without it the
+    /// self-test would write its fixtures over the user's real reading.
     static var homeOverride: URL?
     private static var home: URL {
-        homeOverride ?? FileManager.default.homeDirectoryForCurrentUser
+        if let homeOverride { return homeOverride }
+        if let path = ProcessInfo.processInfo.environment["USETOKENS_HOME"], !path.isEmpty {
+            return URL(fileURLWithPath: path)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
     }
 
     static var supportDirectory: URL {
         home.appendingPathComponent("Library/Application Support/UseTokens")
     }
     static var dumpURL: URL { supportDirectory.appendingPathComponent("claude-usage.json") }
-    static var scriptURL: URL { supportDirectory.appendingPathComponent("claude-statusline.sh") }
+
+    /// Where the bridge script lives — and the directory name matters.
+    ///
+    /// Claude Code runs the configured command *through a shell*; that is what
+    /// lets people write `ccusage | tail -1` as their status line. So the path
+    /// is pasted into a command line, and a path containing a space is split
+    /// into two words there. The first install put the script under "Library/
+    /// Application Support/UseTokens", and every invocation died with
+    ///
+    ///     /bin/sh: /Users/…/Library/Application: No such file or directory
+    ///
+    /// silently, because nothing shows a status line command's stderr. Worse,
+    /// Claude Code latches a command that keeps failing and stops calling it.
+    /// The script now lives somewhere with no spaces in the name, so it needs
+    /// no quoting on the other side and cannot be broken by someone else's.
+    static var scriptURL: URL {
+        home.appendingPathComponent(".usetokens/claude-statusline.sh")
+    }
     static var settingsURL: URL {
         home.appendingPathComponent(".claude/settings.json")
+    }
+
+    /// The first location, kept only so an existing install is migrated to the
+    /// new path instead of being left behind alongside it.
+    private static var legacyScriptURL: URL {
+        supportDirectory.appendingPathComponent("claude-statusline.sh")
+    }
+
+    /// Whether a configured command is one of ours, at either location.
+    private static func isOurs(_ command: String?) -> Bool {
+        command == scriptURL.path || command == legacyScriptURL.path
     }
 
     /// Marks the entry as ours, so install/uninstall never touch someone else's.
@@ -98,7 +135,7 @@ enum ClaudeStatusLine {
     // MARK: - Installing
 
     static func isInstalled() -> Bool {
-        currentEntry()?["command"] as? String == scriptURL.path
+        isOurs(currentEntry()?["command"] as? String)
     }
 
     private static func currentEntry() -> [String: Any]? {
@@ -120,7 +157,7 @@ enum ClaudeStatusLine {
         // Already installed: the entry we are looking at is ours, so the thing
         // worth preserving is whatever we stashed the first time.
         let original: [String: Any]? = existing.flatMap { entry in
-            entry["command"] as? String == scriptURL.path
+            isOurs(entry["command"] as? String)
                 ? entry[marker + "Original"] as? [String: Any]
                 : entry
         }
@@ -153,7 +190,7 @@ enum ClaudeStatusLine {
         guard var settings = readSettings() else { return false }
 
         guard let entry = settings["statusLine"] as? [String: Any],
-              entry["command"] as? String == scriptURL.path else { return true }
+              isOurs(entry["command"] as? String) else { return true }
 
         // The original entry was stashed whole, so every key it had — padding,
         // refreshInterval, hideVimModeIndicator — comes back exactly as it was.
@@ -164,6 +201,7 @@ enum ClaudeStatusLine {
         }
         try? FileManager.default.removeItem(at: dumpURL)
         try? FileManager.default.removeItem(at: scriptURL)
+        try? FileManager.default.removeItem(at: legacyScriptURL)
         return write(settings)
     }
 
@@ -201,7 +239,11 @@ enum ClaudeStatusLine {
     /// user's own previous command when there was one, otherwise our summary.
     private static func writeScript(chainingTo inner: String?) -> Bool {
         let fm = FileManager.default
+        try? fm.createDirectory(at: scriptURL.deletingLastPathComponent(),
+                                withIntermediateDirectories: true)
         try? fm.createDirectory(at: supportDirectory, withIntermediateDirectories: true)
+        // Migrating: the copy at the old, space-containing path is dead weight.
+        if scriptURL != legacyScriptURL { try? fm.removeItem(at: legacyScriptURL) }
 
         let binary = shellQuote(Bundle.main.executableURL?.path ?? "")
         // With a chained command, ours still saves the reading but stays quiet

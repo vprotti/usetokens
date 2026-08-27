@@ -57,6 +57,10 @@ final class ClaudeProvider: UsageProvider {
     private static let statusLineMaxAge: TimeInterval = 5 * 60
 
     func fetchAll() async -> [ProviderStatus] {
+        // Who is signed in, straight from Claude Code's own config file. An
+        // identity, not a credential — and the reason the card can name the
+        // account and the plan even on a day when no source has a live number.
+        let account = ClaudeAccount.current()
         let sample = ClaudeDesktopUsage.latest()
         let line = ClaudeStatusLine.latest()
 
@@ -64,32 +68,35 @@ final class ClaudeProvider: UsageProvider {
         // A reading this fresh is proof of a signed-in session by itself, so
         // nothing else needs to be asked.
         if let line, Date().timeIntervalSince(line.date) <= Self.statusLineMaxAge,
-           let status = statusLineStatus(line) {
+           let status = statusLineStatus(line, account: account) {
             return [status]
         }
 
         // Is there a Claude on this Mac at all?
         //
-        // `claude auth status` only ever speaks for the command line tool's own
-        // credential. Someone signed into the Claude desktop app gets a "no"
-        // from it while being perfectly signed in — so a negative answer there
-        // is a reason to keep looking, never a reason to decide the user has no
-        // Claude and hide the card.
+        // `~/.claude.json` settles it outright when Claude Code has ever signed
+        // in. Failing that, the evidence is a file one of the Claude apps wrote
+        // itself — it exists only because a signed-in session created it.
         //
-        // The honest evidence is a file one of the Claude apps wrote itself:
-        // the desktop app's usage history, or a status line dump. Either exists
-        // only because a signed-in session created it.
+        // `claude auth status` is the last resort rather than the first: it
+        // launches a 300 MB binary, and it only ever speaks for the command
+        // line tool's own credential. Someone signed into the Claude desktop
+        // app gets a "no" from it while being perfectly signed in, so a
+        // negative answer there is a reason to keep looking, never a reason to
+        // decide the user has no Claude and hide the card.
         let evidence = [sample?.date, line?.date].compactMap { $0 }.max()
-        let seenSignedIn = evidence.map {
+        let seenSignedIn = account != nil || (evidence.map {
             Date().timeIntervalSince($0) < Self.signedInEvidenceMaxAge
-        } ?? false
+        } ?? false)
 
         // Nothing local to go on — only now is the CLI worth a process spawn.
         let cli = seenSignedIn ? nil : await cachedCLIStatus()
         guard seenSignedIn || cli?.loggedIn == true else { return [] }
 
-        // 2. Exact numbers, when a credential we are allowed to use exists.
+        // 2. Exact numbers, when a credential the user has explicitly allowed
+        // this app to use exists. Off unless they turned it on themselves.
         if Prefs.claudeKeychainConsent {
+            let org = sample?.org ?? account?.organizationUUID
             var live: [ProviderStatus] = []
             for service in ClaudeKeychain.allServiceNames() {
                 switch ClaudeKeychain.read(service: service) {
@@ -98,27 +105,28 @@ final class ClaudeProvider: UsageProvider {
                 case .absent:
                     continue
                 case .found(let creds):
-                    if let status = await liveStatus(creds: creds, org: sample?.org) {
+                    if let status = await liveStatus(creds: creds, org: org) {
                         live.append(status)
                     }
                 }
             }
             for url in Accounts.claudeCredentialFiles() {
                 guard let creds = ClaudeKeychain.readFile(at: url) else { continue }
-                if let status = await liveStatus(creds: creds, org: sample?.org) {
+                if let status = await liveStatus(creds: creds, org: org) {
                     live.append(status)
                 }
             }
             if !live.isEmpty { return live }
         }
 
-        // 3. The desktop app's own reading.
-        return [desktopStatus(sample: sample)]
+        // 3. Whatever either Claude app last left on disk, stamped with when.
+        return [localStatus(sample: sample, line: line, account: account)]
     }
 
     /// The status line reports the whole account, so a single card is right —
     /// claude.ai, Claude Code and the desktop app share one limit.
-    private func statusLineStatus(_ reading: ClaudeStatusLine.Reading) -> ProviderStatus? {
+    private func statusLineStatus(_ reading: ClaudeStatusLine.Reading,
+                                  account: ClaudeAccount.Info?) -> ProviderStatus? {
         var windows: [LimitWindow] = []
         for window in reading.windows.sorted(by: { $0.field < $1.field }) {
             let label = Self.label(forField: window.field)
@@ -133,10 +141,14 @@ final class ClaudeProvider: UsageProvider {
         guard !windows.isEmpty else { return nil }
         windows.sort { Self.sortKey($0) < Self.sortKey($1) }
 
+        // The same account id as the stale card below, deliberately: the card
+        // must keep its identity as readings come and go, or the popover would
+        // tear itself down and rebuild every time a session ends.
         return ProviderStatus(
-            providerID: id, accountID: "statusline", accountLabel: nil,
+            providerID: id, accountID: "local",
+            accountLabel: account?.email.map(Accounts.mask(email:)),
             groups: [LimitGroup(title: nil, windows: windows)],
-            planType: reading.planType ?? ClaudeKeychain.cachedPlan,
+            planType: reading.planType ?? account?.plan ?? ClaudeKeychain.cachedPlan,
             source: .live, lastUpdated: reading.date, state: .ok, noteKey: nil)
     }
 
@@ -277,43 +289,60 @@ final class ClaudeProvider: UsageProvider {
                               source: .live, lastUpdated: Date(), state: .ok, noteKey: nil)
     }
 
-    // MARK: - 2. The Claude desktop app's own reading
+    // MARK: - 3. The last reading either Claude app left on disk
 
-    private func desktopStatus(sample: ClaudeDesktopUsage.Sample?) -> ProviderStatus {
-        let age = sample.map { Date().timeIntervalSince($0.date) } ?? .infinity
-        let fresh = age <= ClaudeDesktopUsage.freshMaxAge
+    /// The card when no source is current.
+    ///
+    /// It still names the account and the plan, because those are known and a
+    /// card that vanishes reads as a broken app. What it will not do is repeat
+    /// an old percentage as if it were now: every row carries the moment it was
+    /// read, and anything past `freshMaxAge` counts as history — shown here
+    /// with its age, never drawn as a bar in the menu bar.
+    private func localStatus(sample: ClaudeDesktopUsage.Sample?,
+                             line: ClaudeStatusLine.Reading?,
+                             account: ClaudeAccount.Info?) -> ProviderStatus {
+        let plan = account?.plan ?? ClaudeKeychain.cachedPlan
+        let label = account?.email.map(Accounts.mask(email:))
 
-        // Stale readings are not shown as numbers. The app says it has no
-        // current reading instead of repeating one from hours ago.
-        guard let sample, fresh else {
+        typealias Row = (field: String, percent: Double, resets: Date?)
+        let readings: [(date: Date, rows: [Row])] = [
+            sample.map { ($0.date, $0.windows.map { Row($0.field, $0.percent, nil) }) },
+            line.map { ($0.date, $0.windows.map { Row($0.field, $0.percent, $0.resetsAt) }) },
+        ].compactMap { $0 }
+
+        // Whichever of the two spoke last wins; mixing them would put two
+        // different moments in one card without saying so.
+        guard let reading = readings.max(by: { $0.date < $1.date }), !reading.rows.isEmpty else {
             return ProviderStatus(
-                providerID: id, accountID: "desktop", accountLabel: nil, groups: [],
-                planType: ClaudeKeychain.cachedPlan, source: .localSnapshot,
-                lastUpdated: Date(), state: .ok, noteKey: "claude.noReading")
+                providerID: id, accountID: "local", accountLabel: label, groups: [],
+                planType: plan, source: .localSnapshot, lastUpdated: Date(),
+                state: .ok, noteKey: "claude.noReading")
         }
 
         var windows: [LimitWindow] = []
-        for window in sample.windows {
-            let minutes = ClaudeDesktopUsage.windowMinutes(forField: window.field)
-            let label = Self.label(forField: window.field)
+        for row in reading.rows {
+            let caption = Self.label(forField: row.field)
+            // The desktop app's file carries no reset time. A 5 h block can be
+            // anchored from the local transcripts; a weekly one only after the
+            // app has watched a rollover happen.
+            let resets = row.resets
+                ?? (row.field == "five_hour" ? ClaudeLocalUsage.activeBlock()?.blockEndsAt : nil)
+                ?? UsageHistory.predictedReset(for: "claude.\(row.field)")
             windows.append(LimitWindow(
-                id: "claude.\(window.field)", labelKey: label.key, labelArgument: label.argument,
-                usedPercent: window.percent,
-                // The file carries no reset time; a 5 h block can be anchored
-                // from the local transcripts, a weekly one only after the app
-                // has watched a rollover happen.
-                resetsAt: window.field == "five_hour"
-                    ? (ClaudeLocalUsage.activeBlock()?.blockEndsAt
-                        ?? UsageHistory.predictedReset(for: "claude.\(window.field)"))
-                    : UsageHistory.predictedReset(for: "claude.\(window.field)"),
-                windowMinutes: minutes, tokensUsed: nil, readAt: sample.date))
+                id: "claude.\(row.field)", labelKey: caption.key,
+                labelArgument: caption.argument, usedPercent: row.percent,
+                resetsAt: resets,
+                windowMinutes: ClaudeDesktopUsage.windowMinutes(forField: row.field),
+                tokensUsed: nil, readAt: reading.date))
         }
+        windows.sort { Self.sortKey($0) < Self.sortKey($1) }
 
+        let stale = Date().timeIntervalSince(reading.date) > ClaudeDesktopUsage.freshMaxAge
         return ProviderStatus(
-            providerID: id, accountID: "desktop", accountLabel: nil,
+            providerID: id, accountID: "local", accountLabel: label,
             groups: [LimitGroup(title: nil, windows: windows)],
-            planType: ClaudeKeychain.cachedPlan, source: .localSnapshot,
-            lastUpdated: sample.date, state: .ok, noteKey: nil)
+            planType: plan, source: .localSnapshot, lastUpdated: reading.date,
+            state: .ok, noteKey: stale ? "claude.noReadingHint" : nil)
     }
 
     // MARK: - Labels

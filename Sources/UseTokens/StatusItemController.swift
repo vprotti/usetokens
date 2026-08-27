@@ -36,6 +36,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(refreshIcon), name: .usageDidUpdate, object: nil)
+        // The bars take their track colour from the menu bar itself, so they
+        // have to be redrawn when the Mac switches between light and dark.
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(refreshIcon),
+            name: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
         refreshIcon()
     }
 
@@ -43,9 +48,49 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     var isPopoverVisible: Bool { popoverVisible }
 
     @objc private func refreshIcon() {
-        statusItem.button?.image = StatusIcons.icon(forPercent: store.maxUsedPercent)
+        if Prefs.menuBarBars, let bars = StatusIcons.barsIcon(barGroups()) {
+            statusItem.button?.image = bars
+            // The bars are wider than they are tall; a square slot would clip
+            // the second service off the end.
+            statusItem.length = bars.size.width
+        } else {
+            statusItem.button?.image = StatusIcons.icon(forPercent: store.maxUsedPercent)
+            statusItem.length = NSStatusItem.squareLength
+        }
         let summary = store.tooltipSummary
         statusItem.button?.toolTip = summary.isEmpty ? "UseTokens" : summary
+    }
+
+    /// One pair of bars per service, always in the same order, so a given
+    /// stack always means the same thing to the eye.
+    ///
+    /// Which window is the session and which is the week is worked out from
+    /// their lengths rather than their names: the two services word them
+    /// differently, and both have added windows since this app was written.
+    /// When a service reports several windows of the same length — the weekly
+    /// per-model ones — the bar shows the fullest, which is the one that will
+    /// stop the user first.
+    private func barGroups() -> [StatusIcons.Bars] {
+        var groups: [StatusIcons.Bars] = []
+        for provider in ["codex", "claude"] {
+            let windows = store.statuses
+                .filter { $0.providerID == provider }
+                .flatMap { $0.allWindows }
+                .filter { !$0.isStale && $0.usedPercent != nil }
+            guard !windows.isEmpty else { continue }
+
+            let lengths = windows.map { $0.windowMinutes ?? 0 }
+            let shortest = lengths.min(), longest = lengths.max()
+            func fullest(_ minutes: Int?) -> Double? {
+                windows.filter { ($0.windowMinutes ?? 0) == minutes }
+                    .compactMap { $0.usedPercent }.max()
+            }
+            groups.append(StatusIcons.Bars(
+                session: fullest(shortest),
+                week: shortest == longest ? nil : fullest(longest),
+                tint: provider == "claude" ? StatusIcons.claudeTint : StatusIcons.teal))
+        }
+        return groups
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {

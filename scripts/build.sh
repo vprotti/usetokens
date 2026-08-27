@@ -11,7 +11,7 @@ ROOT="$PWD"
 
 # Single source of truth for the release version: stamped into the
 # bundle here and published to the update manifest by dmg.sh.
-APP_VERSION="${APP_VERSION:-1.0.0}"
+APP_VERSION="${APP_VERSION:-1.0.1}"
 DIST="$ROOT/dist"
 APP="$DIST/UseTokens.app"
 

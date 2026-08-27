@@ -36,6 +36,58 @@ enum SelfTest {
     }
 
     /// Renders the three menu bar states over both menu bar shades.
+    /// Renders the menu bar bars over both menu bar shades, in the states that
+    /// matter: two services, one service, a nearly-full window, a full one.
+    static func renderBars(to path: String) {
+        let scale: CGFloat = 5
+        let teal = StatusIcons.teal, claude = StatusIcons.claudeTint
+        let cases: [[StatusIcons.Bars]] = [
+            [.init(session: 12, week: 2, tint: teal),
+             .init(session: 72, week: 32, tint: claude)],
+            [.init(session: 4, week: 24, tint: claude)],
+            [.init(session: 93, week: 41, tint: teal),
+             .init(session: 100, week: 88, tint: claude)],
+            [.init(session: 0, week: 0, tint: teal),
+             .init(session: nil, week: 55, tint: claude)],
+        ]
+        let images = cases.compactMap { StatusIcons.barsIcon($0) }
+        guard !images.isEmpty else { return }
+
+        // Wider than the 5 pt that separates two services inside one menu bar
+        // item, or the cases would read as one long row of unrelated bars.
+        let gap: CGFloat = 80
+        let width = images.reduce(gap) { $0 + $1.size.width * scale + gap }
+        let rowHeight = 18 * scale + 16
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(width), pixelsHigh: Int(rowHeight * 2),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSColor(calibratedWhite: 0.10, alpha: 1).setFill()
+        NSRect(x: 0, y: rowHeight, width: width, height: rowHeight).fill()
+        NSColor(calibratedWhite: 0.95, alpha: 1).setFill()
+        NSRect(x: 0, y: 0, width: width, height: rowHeight).fill()
+
+        for (row, appearance) in [NSAppearance(named: .darkAqua), NSAppearance(named: .aqua)].enumerated() {
+            appearance?.performAsCurrentDrawingAppearance {
+                var x = gap
+                for image in images {
+                    let w = image.size.width * scale
+                    image.draw(in: NSRect(x: x, y: CGFloat(1 - row) * rowHeight + 8,
+                                          width: w, height: 18 * scale))
+                    x += w + gap
+                }
+            }
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        if let data = rep.representation(using: .png, properties: [:]) {
+            try? data.write(to: URL(fileURLWithPath: path))
+            print("wrote \(path)")
+        }
+    }
+
     static func renderTrayStates(to path: String) {
         let scale: CGFloat = 4
         let cell = 18 * scale
@@ -102,6 +154,14 @@ enum SelfTest {
                         windowMinutes: minutes, tokensUsed: nil, readAt: nil)
         }
 
+        /// A weekly window that belongs to one model, the way Claude reports them.
+        func model(_ id: String, _ name: String, _ percent: Double,
+                   _ resetsIn: TimeInterval) -> LimitWindow {
+            LimitWindow(id: id, labelKey: "window.weekModel", labelArgument: name,
+                        usedPercent: percent, resetsAt: now.addingTimeInterval(resetsIn),
+                        windowMinutes: 10080, tokensUsed: nil, readAt: nil)
+        }
+
         let fake: [ProviderStatus] = [
             ProviderStatus(
                 providerID: "codex", accountID: "c1",
@@ -123,9 +183,10 @@ enum SelfTest {
                     LimitGroup(title: nil, windows: [
                         window("d.claude.5h", "window.5h", 72, 10_400, 300),
                         window("d.claude.week", "window.weekAll", 32, 200_000, 10080),
+                        model("d.claude.fable", "Fable", 33, 200_000),
                     ]),
                 ],
-                planType: "max", source: .live, lastUpdated: now, state: .ok, noteKey: nil),
+                planType: "Max 20x", source: .live, lastUpdated: now, state: .ok, noteKey: nil),
             ProviderStatus(
                 providerID: "claude", accountID: "a2",
                 accountLabel: Accounts.mask(email: "trabalho@exemplo.com"),
@@ -169,12 +230,109 @@ enum SelfTest {
             print("could not create rep"); return
         }
         view.cacheDisplay(in: view.bounds, to: rep)
+        Self.lastPopover = rep
+        guard !path.isEmpty else { return }
         if let data = rep.representation(using: .png, properties: [:]) {
             try? data.write(to: URL(fileURLWithPath: path))
             print("wrote \(path)")
         }
     }
 
+    /// Kept by `renderCurrentCache` so the site shot can reuse the popover it
+    /// just painted instead of building the whole view tree a second time.
+    private static var lastPopover: NSBitmapImageRep?
+
+    /// The landscape image the website shows on the UseTokens card: the menu
+    /// bar reading on the left, the popover it opens on the right, on the same
+    /// dark slab the other two apps use so the three cards read as a set.
+    @MainActor
+    static func renderSiteShot(to path: String) {
+        renderPopover(to: "")
+        guard let popover = lastPopover,
+              let bars = StatusIcons.barsIcon([
+                .init(session: 12, week: 9, tint: StatusIcons.teal),
+                .init(session: 72, week: 32, tint: StatusIcons.claudeTint)])
+        else { return }
+
+        let scale: CGFloat = 2
+        let size = NSSize(width: 1180, height: 700)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale),
+            pixelsHigh: Int(size.height * scale), bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
+            bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        rep.size = size
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSAppearance(named: .darkAqua)?.performAsCurrentDrawingAppearance {
+            NSColor(calibratedRed: 0.106, green: 0.106, blue: 0.114, alpha: 1).setFill()
+            NSBezierPath(roundedRect: NSRect(origin: .zero, size: size),
+                         xRadius: 26, yRadius: 26).fill()
+
+            // The popover, at its own proportions, down the right-hand side.
+            let popHeight: CGFloat = 620
+            let popWidth = popHeight * (popover.size.width / popover.size.height)
+            let popRect = NSRect(x: size.width - 56 - popWidth,
+                                 y: (size.height - popHeight) / 2,
+                                 width: popWidth, height: popHeight)
+            let rounded = NSBezierPath(roundedRect: popRect, xRadius: 16, yRadius: 16)
+            NSGraphicsContext.saveGraphicsState()
+            rounded.setClip()
+            popover.draw(in: popRect)
+            NSGraphicsContext.restoreGraphicsState()
+            NSColor(calibratedWhite: 1, alpha: 0.10).setStroke()
+            rounded.lineWidth = 1
+            rounded.stroke()
+
+            // A slice of menu bar on the left, at the size it really appears,
+            // and the same reading blown up underneath so the bars are legible
+            // on a website. The two together are what the app looks like.
+            let column = NSRect(x: 56, y: 0, width: popRect.minX - 56 - 40, height: size.height)
+            let stripHeight: CGFloat = 64
+            let bigScale: CGFloat = 9
+            let big = NSSize(width: bars.size.width * bigScale,
+                             height: bars.size.height * bigScale)
+            let spacing: CGFloat = 96
+            let blockHeight = stripHeight + spacing + big.height
+            let strip = NSRect(x: column.minX, y: column.midY + blockHeight / 2 - stripHeight,
+                               width: column.width, height: stripHeight)
+
+            NSColor(calibratedWhite: 0.04, alpha: 1).setFill()
+            NSBezierPath(roundedRect: strip, xRadius: 15, yRadius: 15).fill()
+
+            // Status items live at the right end of a menu bar, next to the
+            // clock — putting them anywhere else would not read as one.
+            let clock = NSAttributedString(string: "14:07", attributes: [
+                .font: NSFont.systemFont(ofSize: 20, weight: .regular),
+                .foregroundColor: NSColor(calibratedWhite: 0.74, alpha: 1)])
+            let clockSize = clock.size()
+            clock.draw(at: NSPoint(x: strip.maxX - 34 - clockSize.width,
+                                   y: strip.midY - clockSize.height / 2))
+
+            let barScale: CGFloat = 2.6
+            let barSize = NSSize(width: bars.size.width * barScale,
+                                 height: bars.size.height * barScale)
+            bars.draw(in: NSRect(x: strip.maxX - 34 - clockSize.width - 30 - barSize.width,
+                                 y: strip.midY - barSize.height / 2,
+                                 width: barSize.width, height: barSize.height))
+
+            bars.draw(in: NSRect(x: column.midX - big.width / 2,
+                                 y: strip.minY - spacing - big.height,
+                                 width: big.width, height: big.height))
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
+        if let data = rep.representation(using: .png, properties: [:]) {
+            try? data.write(to: URL(fileURLWithPath: path))
+            print("wrote \(path)")
+        }
+    }
+
+    /// `--consent` opts the run into the Keychain path. Claude is always
+    /// exercised; the flag only decides whether the credential route is allowed
+    /// to run, so the credential-free detection can be checked on its own —
+    /// which is the case that has to work for everybody.
     static func runFetch(includeClaude: Bool) {
         let semaphore = DispatchSemaphore(value: 0)
         Task {
@@ -182,16 +340,16 @@ enum SelfTest {
                 print("== codex ==")
                 printStatus(status)
             }
-            if includeClaude {
-                Prefs.registerDefaults()
-                let hadConsent = Prefs.claudeKeychainConsent
-                Prefs.claudeKeychainConsent = true
-                let claudeStatuses = await ClaudeProvider().fetchAll()
-                Prefs.claudeKeychainConsent = hadConsent
-                for status in claudeStatuses {
-                    print("== claude ==")
-                    printStatus(status)
-                }
+            Prefs.registerDefaults()
+            let hadConsent = Prefs.claudeKeychainConsent
+            Prefs.claudeKeychainConsent = includeClaude
+            let claudeStatuses = await ClaudeProvider().fetchAll()
+            Prefs.claudeKeychainConsent = hadConsent
+
+            if claudeStatuses.isEmpty { print("== claude ==\nno signed-in Claude found") }
+            for status in claudeStatuses {
+                print("== claude ==")
+                printStatus(status)
             }
             semaphore.signal()
         }
@@ -203,6 +361,31 @@ enum SelfTest {
     /// ~/.claude/settings.json is never a test subject. Checks the three
     /// things that would hurt a user: unrelated keys survive, an existing
     /// status line is chained rather than replaced, and uninstall puts it back.
+    /// Runs `sh -c <command>` with a usage payload on stdin, the way Claude
+    /// Code invokes a status line, and reports whether it exited cleanly.
+    private static func shellRuns(_ command: String, home: URL) -> Bool {
+        guard !command.isEmpty else { return false }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        // The script runs this binary again; without this the child would
+        // write its fixture over the user's real reading.
+        var environment = ProcessInfo.processInfo.environment
+        environment["USETOKENS_HOME"] = home.path
+        process.environment = environment
+        let input = Pipe(), output = Pipe()
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return false }
+        input.fileHandleForWriting.write(
+            Data(#"{"rate_limits":{"five_hour":{"used_percentage":10}}}"#.utf8))
+        try? input.fileHandleForWriting.close()
+        _ = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return process.terminationStatus == 0
+    }
+
     static func runStatusLine(in scratch: URL) {
         let fm = FileManager.default
         ClaudeStatusLine.homeOverride = scratch
@@ -238,6 +421,19 @@ enum SelfTest {
         check("script is executable",
               fm.isExecutableFile(atPath: ClaudeStatusLine.scriptURL.path))
         check("install is idempotent", ClaudeStatusLine.install())
+
+        // The regression this whole path exists for. Claude Code runs the
+        // configured command *through a shell* — that is what lets people write
+        // `ccusage | tail -1` — so a path containing a space is split into two
+        // words and the command dies with "No such file or directory", every
+        // time, in silence. Ask a shell to run it exactly the way Claude Code
+        // does, unquoted, and insist the reading comes out the other end.
+        let registered = (read()["statusLine"] as? [String: Any])?["command"] as? String ?? ""
+        check("command path has no space", !registered.contains(" "))
+        try? fm.removeItem(at: ClaudeStatusLine.dumpURL)
+        check("a shell can run it unquoted", shellRuns(registered, home: scratch))
+        check("the reading reached disk",
+              fm.fileExists(atPath: ClaudeStatusLine.dumpURL.path))
 
         // 2. Uninstall removes the key and leaves everything else alone.
         check("uninstall succeeds", ClaudeStatusLine.uninstall())

@@ -15,6 +15,7 @@ enum Prefs {
         static let cachedStatusJSON = "cachedStatusJSON"
         static let notifyOnReset = "notifyOnReset"
         static let claudePlanCache = "claudePlanCache"
+        static let menuBarBars = "menuBarBars"
     }
 
     static func registerDefaults() {
@@ -25,6 +26,7 @@ enum Prefs {
             Key.claudeKeychainConsent: true,
             Key.claudeStatusLine: true,
             Key.notifyOnReset: false,
+            Key.menuBarBars: true,
         ])
     }
 
@@ -97,6 +99,16 @@ enum Prefs {
     static var claudeStatusLine: Bool {
         get { d.bool(forKey: Key.claudeStatusLine) }
         set { d.set(newValue, forKey: Key.claudeStatusLine) }
+    }
+
+    /// Draw the usage bars in the menu bar instead of the plain token.
+    ///
+    /// On by default: the whole point of a menu bar app is answering the
+    /// question without being opened. Off restores the single square glyph for
+    /// anyone whose menu bar is already full.
+    static var menuBarBars: Bool {
+        get { d.bool(forKey: Key.menuBarBars) }
+        set { d.set(newValue, forKey: Key.menuBarBars) }
     }
 
     /// Last known Claude subscription name, so the plan chip survives refreshes

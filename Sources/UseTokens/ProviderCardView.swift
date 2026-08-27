@@ -112,7 +112,12 @@ final class ProviderCardView: NSView {
 
         planChip.isHidden = status.planType == nil
         if let plan = status.planType {
-            planChip.stringValue = plan.replacingOccurrences(of: "_", with: " ").capitalized
+            // Providers hand over raw keys ("pro", "max_20x"); the account file
+            // hands over a finished name ("Max 20x"). Capitalizing the second
+            // kind turns "20x" into "20X", so only tidy what still looks raw.
+            let spaced = plan.replacingOccurrences(of: "_", with: " ")
+            planChip.stringValue = spaced.contains(where: \.isUppercase)
+                ? spaced : spaced.capitalized
         }
         sourceChip.isHidden = status.source == .live
         let estimated = status.source == .localEstimate

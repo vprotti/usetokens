@@ -20,6 +20,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var lineHint: NSTextField!
     private var privacyTitle: NSTextField!
     private var privacyBody: NSTextField!
+    private var barsLabel: NSTextField!
+    private var barsSwitch: NSSwitch!
+    private var barsHint: NSTextField!
     private var notifyLabel: NSTextField!
     private var notifySwitch: NSSwitch!
     private var notifyHint: NSTextField!
@@ -100,6 +103,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         privacyBody.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         privacyBody.preferredMaxLayoutWidth = 300
 
+        barsLabel = Self.label()
+        barsSwitch = NSSwitch()
+        barsSwitch.target = self
+        barsSwitch.action = #selector(barsChanged)
+
+        barsHint = NSTextField(wrappingLabelWithString: "")
+        barsHint.textColor = .secondaryLabelColor
+        barsHint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        barsHint.preferredMaxLayoutWidth = 300
+
         notifyLabel = Self.label()
         notifySwitch = NSSwitch()
         notifySwitch.target = self
@@ -134,6 +147,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             [lineHint, NSGridCell.emptyContentView],
             [claudeLabel, claudeSwitch],
             [claudeHint, NSGridCell.emptyContentView],
+            [barsLabel, barsSwitch],
+            [barsHint, NSGridCell.emptyContentView],
             [notifyLabel, notifySwitch],
             [notifyHint, NSGridCell.emptyContentView],
             [updateLabel, updateSwitch],
@@ -154,7 +169,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         loginHintRow = hintCell?.row
         loginHintRow?.isHidden = true
 
-        for hint in [claudeHint!, lineHint!, notifyHint!, updateHint!,
+        for hint in [claudeHint!, lineHint!, barsHint!, notifyHint!, updateHint!,
                      privacyTitle!, privacyBody!] {
             grid.cell(for: hint)?.row?.mergeCells(in: NSRange(location: 0, length: 2))
             grid.cell(for: hint)?.xPlacement = .leading
@@ -192,6 +207,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         privacyBody.stringValue = L10n.t("settings.privacyBody")
         claudeLabel.stringValue = L10n.t("settings.claudeCredential")
         claudeHint.stringValue = L10n.t("settings.claudeCredentialHint")
+        barsLabel.stringValue = L10n.t("settings.menuBarBars")
+        barsHint.stringValue = L10n.t("settings.menuBarBarsHint")
         notifyLabel.stringValue = L10n.t("settings.notifyOnReset")
         notifyHint.stringValue = L10n.t("settings.notifyHint")
         updateLabel.stringValue = L10n.t("settings.autoUpdate")
@@ -224,6 +241,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         refreshPopup.selectItem(at: index)
         lineSwitch.state = Prefs.claudeStatusLine ? .on : .off
         claudeSwitch.state = Prefs.claudeKeychainConsent ? .on : .off
+        barsSwitch.state = Prefs.menuBarBars ? .on : .off
         notifySwitch.state = Prefs.notifyOnReset ? .on : .off
         updateSwitch.state = Prefs.autoUpdate ? .on : .off
         languagePopup.selectItem(at: L10n.current == .ptBR ? 0 : 1)
@@ -262,6 +280,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         Prefs.claudeStatusLine = lineSwitch.state == .on
         AppDelegate.syncClaudeStatusLine()
         store.refresh(manual: true)
+    }
+
+    @objc private func barsChanged() {
+        Prefs.menuBarBars = barsSwitch.state == .on
+        NotificationCenter.default.post(name: .usageDidUpdate, object: nil)
     }
 
     @objc private func notifyChanged() {

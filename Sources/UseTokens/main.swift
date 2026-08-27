@@ -33,6 +33,17 @@ if args.contains("--selftest-notify") {
     SelfTest.testNotification()
     exit(0)
 }
+if let i = args.firstIndex(of: "--selftest-shot"), i + 1 < args.count {
+    _ = NSApplication.shared
+    let path = args[i + 1]
+    MainActor.assumeIsolated { SelfTest.renderSiteShot(to: path) }
+    exit(0)
+}
+if let i = args.firstIndex(of: "--selftest-bars"), i + 1 < args.count {
+    _ = NSApplication.shared
+    SelfTest.renderBars(to: args[i + 1])
+    exit(0)
+}
 if let i = args.firstIndex(of: "--selftest-icons"), i + 1 < args.count {
     _ = NSApplication.shared
     SelfTest.renderTrayStates(to: args[i + 1])
@@ -45,6 +56,17 @@ if let i = args.firstIndex(of: "--selftest-ui"), i + 1 < args.count {
         args.contains("--live") ? SelfTest.renderLivePopover(to: path)
                                 : SelfTest.renderPopover(to: path)
     }
+    exit(0)
+}
+
+if args.contains("--selftest-single") { SingleInstance.runSelfTest() }
+
+// One copy at a time, and nothing on this Mac guarantees it on its own: a
+// binary exec'd directly — by launchd, or by a LaunchAgent some other
+// installer left behind pointing at this path — never passes through Launch
+// Services and starts a second app right on top of the first.
+guard SingleInstance.claim() else {
+    SingleInstance.wakeRunningInstance()
     exit(0)
 }
 

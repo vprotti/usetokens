@@ -27,6 +27,22 @@ struct LimitWindow: Codable {
     var readAt: Date?
 }
 
+extension LimitWindow {
+    /// How old a reading may be and still describe the present.
+    static let freshFor: TimeInterval = 30 * 60
+
+    /// A value read long enough ago that it is history, not status.
+    ///
+    /// Rows still show it, with its age spelled out, because "93 % three days
+    /// ago" is information. A bar in the menu bar is not: it is a claim about
+    /// right now, and drawing an old number there is the one thing this app
+    /// must never do.
+    var isStale: Bool {
+        guard let readAt else { return false }
+        return Date().timeIntervalSince(readAt) > Self.freshFor
+    }
+}
+
 /// One block of limits: the plan's general limits, or a per-model group
 /// such as "GPT-5.3-Codex-Spark".
 struct LimitGroup: Codable {
