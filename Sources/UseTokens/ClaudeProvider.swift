@@ -324,25 +324,42 @@ final class ClaudeProvider: UsageProvider {
                 state: .ok, noteKey: "claude.noReading")
         }
 
+        let stale = Date().timeIntervalSince(reading.date) > ClaudeDesktopUsage.freshMaxAge
         var windows: [LimitWindow] = []
         for row in reading.rows {
-            let caption = Self.label(forField: row.field)
+            let minutes = ClaudeDesktopUsage.windowMinutes(forField: row.field)
+
+            // A window read longer ago than the window itself lasts has rolled
+            // over since, certainly and probably several times. That number is
+            // not old news about now — it is news about a different period, and
+            // a five-hour figure from three days ago belongs nowhere on screen.
+            if reading.date.addingTimeInterval(TimeInterval(minutes) * 60) < Date() { continue }
+
             // The desktop app's file carries no reset time. A 5 h block can be
             // anchored from the local transcripts; a weekly one only after the
-            // app has watched a rollover happen.
-            let resets = row.resets
-                ?? (row.field == "five_hour" ? ClaudeLocalUsage.activeBlock()?.blockEndsAt : nil)
-                ?? UsageHistory.predictedReset(for: "claude.\(row.field)")
+            // app has watched a rollover happen. Neither is offered next to an
+            // old reading: a reset time is a fact about now, and pairing it with
+            // a percentage from before makes the percentage look current too.
+            let resets = row.resets ?? (stale ? nil
+                : (row.field == "five_hour" ? ClaudeLocalUsage.activeBlock()?.blockEndsAt : nil)
+                    ?? UsageHistory.predictedReset(for: "claude.\(row.field)"))
+
+            let caption = Self.label(forField: row.field)
             windows.append(LimitWindow(
                 id: "claude.\(row.field)", labelKey: caption.key,
                 labelArgument: caption.argument, usedPercent: row.percent,
-                resetsAt: resets,
-                windowMinutes: ClaudeDesktopUsage.windowMinutes(forField: row.field),
+                resetsAt: resets, windowMinutes: minutes,
                 tokensUsed: nil, readAt: reading.date))
         }
         windows.sort { Self.sortKey($0) < Self.sortKey($1) }
 
-        let stale = Date().timeIntervalSince(reading.date) > ClaudeDesktopUsage.freshMaxAge
+        guard !windows.isEmpty else {
+            return ProviderStatus(
+                providerID: id, accountID: "local", accountLabel: label, groups: [],
+                planType: plan, source: .localSnapshot, lastUpdated: Date(),
+                state: .ok, noteKey: "claude.noReading")
+        }
+
         return ProviderStatus(
             providerID: id, accountID: "local", accountLabel: label,
             groups: [LimitGroup(title: nil, windows: windows)],
