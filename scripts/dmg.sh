@@ -22,6 +22,16 @@ VOL="/Volumes/UseTokens"
 [ -d "$DIST/UseTokens.app" ] || { echo "error: dist/UseTokens.app missing — run scripts/build.sh first" >&2; exit 1; }
 [ -f "$DIST/dmg-bg.png" ] || { echo "error: dist/dmg-bg.png missing — run scripts/build.sh first" >&2; exit 1; }
 
+# The app in dist/ has to be newer than the sources it was built from.
+# dmg.sh does not build; it packages. Editing a source file and running only
+# this script ships the previous build under the new version number, with no
+# error and nothing on screen to notice — which is exactly what happened once.
+NEWEST_SOURCE="$(find "$ROOT/Sources" "$ROOT/Support" -type f -newer "$DIST/UseTokens.app/Contents/MacOS/UseTokens" 2>/dev/null | head -1 || true)"
+if [ -n "$NEWEST_SOURCE" ]; then
+  echo "error: $(basename "$NEWEST_SOURCE") is newer than the built app — run scripts/build.sh first" >&2
+  exit 1
+fi
+
 echo "==> Staging"
 rm -rf "$STAGE" "$RW_DMG"
 mkdir -p "$STAGE/.background"
